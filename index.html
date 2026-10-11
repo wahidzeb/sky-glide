@@ -278,6 +278,15 @@ body:not(.ads-on) .adslot{display:none!important}
 
 <div id="toast"></div>
 <script>
+/* GA4 custom events (Games by Zaib). Safe: never throws, light (no per-frame calls, dedupe + per-page cap). */
+var ZT_N = 0, ZT_K = '', ZT_KT = 0, ZT_T = 0, ZT_S = 0, ZT_H = 0;
+function zt(n, p) { try { var k = n + JSON.stringify(p || 0), t = Date.now(); if (ZT_N > 150 || (k === ZT_K && t - ZT_KT < 500)) return; ZT_N++; ZT_K = k; ZT_KT = t; window.gtag && gtag('event', n, Object.assign({ game_id: 'sky-glide' }, p)); } catch (e) {} }
+function ztPlay(on) { try { var t = Date.now(); if (ZT_S) { ZT_T += (t - ZT_S) / 1e3; ZT_S = 0; } if (on) ZT_S = t; } catch (e) {} }
+function ztPing(r) { try { ztPlay(false); if (ZT_T >= 1) zt('play_time', { play_time: Math.round(ZT_T), reason: r }); ZT_T = 0; } catch (e) {} }
+try {
+  document.addEventListener('visibilitychange', function () { if (document.hidden) { ZT_H = !!ZT_S; ztPing('page_hide'); } else if (ZT_H) { ZT_H = 0; ztPlay(true); } });
+  document.addEventListener('click', function (e) { try { var a = e.target && e.target.closest && e.target.closest('a[href]'); if (!a) return; var u = new URL(a.href, location.href); if (!/^https?:$/.test(u.protocol)) return; if (u.host === location.host || /(^|\.)zaibgames\.com$/.test(u.host)) { if (u.pathname.indexOf('/sky-glide/') !== 0) zt('more_games_click', { link_url: u.href }); } else zt('outbound_click', { link_url: u.href, link_domain: u.host, outbound: true }); } catch (err) {} }, true);
+} catch (e) {}
 'use strict';
 // ================= Sky Glide by Zaib — core =================
 const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
@@ -1738,6 +1747,7 @@ function afterStart() {
   setSong(WORLDS[G.run.wi].key);
   input.ptrs.clear(); input.keys.clear();
   SFX.ready();
+  const r = G.run; zt('game_start', { mode: r.mode, level: r.mode === 'level' ? r.lvl + 1 : 0 }); if (r.mode === 'level') zt('level_start', { level: r.lvl + 1 }); ztPlay(true);
 }
 function pauseGame() { if (G.state !== 'play' && G.state !== 'ready') return; G.prevState = G.state; G.state = 'paused'; updatePauseInfo(); showScreen('pause'); applyVolumes(); setWind(0); }
 function resumeGame() { if (G.state !== 'paused') return; G.state = G.prevState || 'play'; showScreen(null); $('#hud').classList.remove('hidden'); input.ptrs.clear(); input.keys.clear(); applyVolumes(); G.last = performance.now(); }
@@ -2099,6 +2109,10 @@ function endRun(win) {
   const coinsEarned = Math.round(r.coins * r.st.coin) + (win ? 20 + LEVELS[r.lvl].w * 10 : 0) + (r.mode === 'endless' ? Math.floor(r.dist / 100) : 0);
   const res = { win, mode: r.mode, lvl: r.lvl, dist: r.dist, coins: r.coins, coinsEarned, near: r.near, bestMult: r.bestMult, score: Math.round(r.score + r.dist), stars: r.starsGot.slice(), newBest: false, hits: r.hits };
   save.coins += coinsEarned;
+  if (r.mode === 'level') zt('level_end', { level: r.lvl + 1, success: !!win, score: res.score });
+  if (!win) zt('game_over', { score: res.score, level: r.mode === 'level' ? r.lvl + 1 : 0, mode: r.mode, distance: Math.floor(r.dist) });
+  if (coinsEarned > 0) zt('earn_virtual_currency', { virtual_currency_name: 'coins', value: coinsEarned, item_name: r.mode + '_run' });
+  ztPing(win ? 'level_clear' : 'game_over');
   save.tot.coins += r.coins; save.tot.near += r.near; save.tot.pu += r.puCount; save.tot.dist += r.dist; save.tot.runs++;
   save.rec.near = Math.max(save.rec.near, r.near); save.rec.combo = Math.max(save.rec.combo, r.bestMult);
   if (r.mode === 'level') {
@@ -2109,12 +2123,12 @@ function endRun(win) {
       if (!save.lvDone[n]) res.firstClear = true;
       save.lvDone[n] = true; save.unlocked = Math.max(save.unlocked, Math.min(LEVELS.length, n + 2));
       if (r.hits === 0) save.rec.nohit = 1;
-      if (res.score > save.lvBest[n]) { if (save.lvBest[n]) res.newBest = true; save.lvBest[n] = res.score; }
+      if (res.score > save.lvBest[n]) { zt('post_score', { score: res.score, level: n + 1, mode: 'level' }); if (save.lvBest[n]) res.newBest = true; save.lvBest[n] = res.score; }
       res.newStars = save.stars[n].reduce((a, b) => a + b, 0) - prevStars;
       if (n % 4 === 3 && n < 19 && res.firstClear) res.worldUnlocked = WORLDS[LEVELS[n].w + 1].name;
     }
   } else {
-    if (r.dist > save.bestEndless) { if (save.bestEndless > 0) res.newBest = true; save.bestEndless = Math.floor(r.dist); }
+    if (r.dist > save.bestEndless) { zt('post_score', { score: res.score, level: 0, mode: 'endless', distance: Math.floor(r.dist) }); if (save.bestEndless > 0) res.newBest = true; save.bestEndless = Math.floor(r.dist); }
     if (res.score > save.bestScore) save.bestScore = res.score;
   }
   const got = checkAchievements();
@@ -2124,7 +2138,7 @@ function endRun(win) {
 }
 function checkAchievements() {
   const got = [];
-  for (const a of ACH) if (!save.ach[a.id] && a.stat(save) >= a.goal) { save.ach[a.id] = true; save.coins += a.reward; got.push(a); }
+  for (const a of ACH) if (!save.ach[a.id] && a.stat(save) >= a.goal) { save.ach[a.id] = true; save.coins += a.reward; got.push(a); zt('unlock_achievement', { achievement_id: a.id }); zt('earn_virtual_currency', { virtual_currency_name: 'coins', value: a.reward, item_name: 'goal_' + a.id }); }
   return got;
 }
 
@@ -2223,7 +2237,7 @@ function buildHangar() {
     b.innerHTML = sel ? 'Flying' : own ? 'Select' : '<span class="coin" style="width:18px;height:18px"></span>' + fmt(p.price);
     if (!own && save.coins < p.price) b.disabled = true;
     b.onclick = () => {
-      if (!own) { if (save.coins < p.price) return; save.coins -= p.price; save.owned[pi] = true; save.plane = pi; SFX.buy(); toast('Unlocked ' + p.name + '!'); const got = checkAchievements(); got.forEach(a => toast('🏆 ' + a.name + ' +' + a.reward)); }
+      if (!own) { if (save.coins < p.price) return; save.coins -= p.price; save.owned[pi] = true; zt('spend_virtual_currency', { virtual_currency_name: 'coins', value: p.price, item_name: p.name }); save.plane = pi; SFX.buy(); toast('Unlocked ' + p.name + '!'); const got = checkAchievements(); got.forEach(a => toast('🏆 ' + a.name + ' +' + a.reward)); }
       else { save.plane = pi; SFX.click(); }
       writeSave(); refresh('hangar');
     };
@@ -2309,8 +2323,8 @@ function wire() {
   $('#bRetry').onclick = () => { SFX.click(); if (lastRes.mode === 'level') startLevel(lastRes.lvl); else startEndless(); };
   $('#bNext').onclick = () => { SFX.click(); if (lastRes.lvl < 19) startLevel(lastRes.lvl + 1); else startEndless(); };
   $('#bMenu').onclick = () => { SFX.click(); quitToMenu(); if (lastRes && lastRes.mode === 'level') showScreen('worlds'); };
-  $$('.tog').forEach(t => t.onclick = () => { const k = t.dataset.set; save.settings[k] = !save.settings[k]; writeSave(); syncSettings(); applyVolumes(); SFX.click(); if (k === 'vibe' && save.settings.vibe) vibrate(30); });
-  $$('#segQ button').forEach(b => b.onclick = () => { save.settings.q = +b.dataset.q; writeSave(); syncSettings(); SFX.click(); });
+  $$('.tog').forEach(t => t.onclick = () => { const k = t.dataset.set; save.settings[k] = !save.settings[k]; zt('settings_change', { setting: k, value: String(save.settings[k]) }); writeSave(); syncSettings(); applyVolumes(); SFX.click(); if (k === 'vibe' && save.settings.vibe) vibrate(30); });
+  $$('#segQ button').forEach(b => b.onclick = () => { save.settings.q = +b.dataset.q; zt('settings_change', { setting: 'quality', value: String(b.dataset.q) }); writeSave(); syncSettings(); SFX.click(); });
   $('#bReset').onclick = () => {
     const b = $('#bReset');
     if (b.dataset.arm !== '1') { b.dataset.arm = '1'; b.textContent = 'Tap again to erase everything'; SFX.warn(); setTimeout(() => { if (b.dataset.arm === '1') syncSettings(); }, 3500); return; }
