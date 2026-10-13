@@ -1,0 +1,42 @@
+{
+  "id": "/sky-glide/",
+  "name": "Sky Glide",
+  "short_name": "Sky Glide",
+  "description": "Sky Glide by Zaib - fly a paper plane through classrooms, parks, rooftops, storms and space.",
+  "lang": "en",
+  "start_url": "/sky-glide/?source=pwa",
+  "scope": "/sky-glide/",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#8fd3ff",
+  "background_color": "#8fd3ff",
+  "categories": [
+    "games"
+  ],
+  "icons": [
+    {
+      "src": "/sky-glide/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/sky-glide/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/sky-glide/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/sky-glide/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
