@@ -51,6 +51,8 @@ canvas#game{position:fixed;left:0;top:0;width:100%;height:100%;display:block;tou
 .screen.dim{background:rgba(32,26,52,.62)}
 .wrap{width:100%;max-width:440px;display:flex;flex-direction:column;align-items:stretch;gap:10px;margin:auto 0}
 .screen.show .wrap>*{animation:pop .42s cubic-bezier(.2,1.4,.4,1) both;animation-delay:calc(var(--i,0) * 45ms)}
+.screen.show .wrap .btn,.screen.show .wrap #titleBtns,.screen.show .wrap .row,.screen.show .wrap .lv,.screen.show .wrap .tog,.screen.show .wrap .seg{animation:none!important;opacity:1!important;transform:none!important}
+.screen.skipAnim .wrap>*{animation:none!important;opacity:1!important;transform:none!important}
 @keyframes pop{from{opacity:0;transform:translateY(18px) scale(.94)}to{opacity:1;transform:none}}
 @keyframes bob{0%,100%{transform:translateY(0) rotate(-3deg)}50%{transform:translateY(-8px) rotate(2deg)}}
 @keyframes wig{0%,100%{transform:rotate(-1.5deg)}50%{transform:rotate(1.5deg)}}
@@ -147,6 +149,7 @@ h2{margin:0;text-align:center;font-weight:900;font-size:32px;letter-spacing:.5px
 .small-note{text-align:center;font-size:12px;color:#fff;font-weight:700;text-shadow:0 1px 0 rgba(0,0,0,.4)}
 @media (orientation:landscape) and (max-height:500px){
  .screen{padding-top:calc(env(safe-area-inset-top) + 8px)}
+ #scrResults{padding-top:calc(env(safe-area-inset-top) + 52px)}
  .wrap{gap:8px}
  .logo{font-size:clamp(40px,12vh,64px)}
  .logoPlane{width:90px}
@@ -342,7 +345,8 @@ try { (function () { var seen = {}, n = 0; function rep(m, w) { try { m = String
       '#zmgBtn:active{transform:translateY(3px);box-shadow:0 1px 0 ' + C.ink + ',0 2px 6px rgba(0,0,0,.3),inset 0 2px 0 rgba(255,255,255,.3)}' +
       '#zmgBtn svg{width:18px;height:18px;flex:none}' +
       '#zmgBtn:focus-visible{outline:3px solid #fff;outline-offset:2px}' +
-      '@keyframes zmgIn{from{opacity:0;transform:translateY(-8px) scale(.9)}to{opacity:1;transform:none}}';
+      '@keyframes zmgIn{from{opacity:0;transform:translateY(-8px) scale(.9)}to{opacity:1;transform:none}}' +
+      '@media (orientation:landscape) and (max-height:500px){#zmgBtn{left:auto;right:calc(env(safe-area-inset-right,0px) + 10px)}}';
     document.head.appendChild(st);
     var a = document.createElement('a');
     a.id = 'zmgBtn'; a.className = 'zmg'; a.href = URL_; a.setAttribute('aria-label', 'More games');
@@ -390,6 +394,7 @@ function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; le
 function hash(n, s) { let x = Math.sin(n * 127.1 + (s || 0) * 311.7) * 43758.5453; return x - Math.floor(x); }
 function vnoise(x, s) { const i = Math.floor(x), f = x - i; return lerp(hash(i, s), hash(i + 1, s), smooth(f)); }
 const fmt = n => Math.round(n).toLocaleString('en-US');
+const fmtDist = n => Math.floor(n).toLocaleString('en-US');
 
 // ---------- world geometry ----------
 const CEIL = 0, GROUND = 1100;
@@ -2111,7 +2116,7 @@ function heartPath(c, x, y, s) { c.beginPath(); c.moveTo(x, y + s * 0.35); c.bez
 function drawHUD(c, r) {
   const L = SAFE.l + 12, Tp = SAFE.t + 10, sc = clamp(Math.min(W, H) / 420, 0.8, 1.25);
   // distance card
-  hudText(c, fmt(r.dist) + ' m', L, Tp + 20 * sc, Math.round(30 * sc), '#fff');
+  hudText(c, fmtDist(r.dist) + ' m', L, Tp + 20 * sc, Math.round(30 * sc), '#fff');
   // hearts
   for (let i = 0; i < r.maxHearts; i++) {
     const x = L + 13 * sc + i * 30 * sc, y = Tp + 40 * sc, full = i < r.hearts;
@@ -2142,7 +2147,7 @@ function drawHUD(c, r) {
     c.save(); c.translate(bx + bw * p, by - 14); c.scale(0.38, 0.38); drawPlane(c, r.st.p, 0, 0, 0, 1, G.t, { flame: false }); c.restore();
     c.save(); c.translate(bx + bw + 12, by); c.fillStyle = INK; c.fillRect(-2, -12, 4, 24); c.fillStyle = '#fff'; c.fillRect(2, -12, 12, 8); c.fillStyle = INK; c.fillRect(2, -12, 6, 4); c.fillRect(8, -8, 6, 4); c.restore();
   } else if (save.bestEndless > 0) {
-    hudText(c, 'BEST ' + fmt(save.bestEndless) + ' m', W / 2, by, Math.round(15 * sc), r.dist > save.bestEndless ? '#ffd23f' : '#fff', 'center');
+    hudText(c, 'BEST ' + fmtDist(save.bestEndless) + ' m', W / 2, by, Math.round(15 * sc), Math.floor(r.dist) > save.bestEndless ? '#ffd23f' : '#fff', 'center');
   }
   // combo
   const m = mult(r);
@@ -2192,11 +2197,12 @@ function endRun(win) {
   const r = G.run; if (G.state === 'results') return;
   G.state = 'results'; setWind(0);
   $('#hud').classList.add('hidden');
-  const coinsEarned = Math.round(r.coins * r.st.coin) + (win ? 20 + LEVELS[r.lvl].w * 10 : 0) + (r.mode === 'endless' ? Math.floor(r.dist / 100) : 0);
-  const res = { win, mode: r.mode, lvl: r.lvl, dist: r.dist, coins: r.coins, coinsEarned, near: r.near, bestMult: r.bestMult, score: Math.round(r.score + r.dist), stars: r.starsGot.slice(), newBest: false, hits: r.hits };
+  const distM = Math.floor(r.dist);
+  const coinsEarned = Math.round(r.coins * r.st.coin) + (win ? 20 + LEVELS[r.lvl].w * 10 : 0) + (r.mode === 'endless' ? Math.floor(distM / 100) : 0);
+  const res = { win, mode: r.mode, lvl: r.lvl, dist: distM, coins: r.coins, coinsEarned, near: r.near, bestMult: r.bestMult, score: Math.round(r.score + r.dist), stars: r.starsGot.slice(), newBest: false, hits: r.hits };
   save.coins += coinsEarned;
   if (r.mode === 'level') zt('level_end', { level: r.lvl + 1, success: !!win, score: res.score });
-  if (!win) zt('game_over', { score: res.score, level: r.mode === 'level' ? r.lvl + 1 : 0, mode: r.mode, distance: Math.floor(r.dist) });
+  if (!win) zt('game_over', { score: res.score, level: r.mode === 'level' ? r.lvl + 1 : 0, mode: r.mode, distance: distM });
   if (coinsEarned > 0) zt('earn_virtual_currency', { virtual_currency_name: 'coins', value: coinsEarned, item_name: r.mode + '_run' });
   ztPing(win ? 'level_clear' : 'game_over');
   save.tot.coins += r.coins; save.tot.near += r.near; save.tot.pu += r.puCount; save.tot.dist += r.dist; save.tot.runs++;
@@ -2214,7 +2220,7 @@ function endRun(win) {
       if (n % 4 === 3 && n < 19 && res.firstClear) res.worldUnlocked = WORLDS[LEVELS[n].w + 1].name;
     }
   } else {
-    if (r.dist > save.bestEndless) { zt('post_score', { score: res.score, level: 0, mode: 'endless', distance: Math.floor(r.dist) }); if (save.bestEndless > 0) res.newBest = true; save.bestEndless = Math.floor(r.dist); }
+    if (distM > save.bestEndless) { zt('post_score', { score: res.score, level: 0, mode: 'endless', distance: distM }); if (save.bestEndless > 0) res.newBest = true; save.bestEndless = distM; }
     if (res.score > save.bestScore) save.bestScore = res.score;
   }
   const got = checkAchievements();
@@ -2242,13 +2248,14 @@ function frame(now) {
 const SCREENS = { title: '#scrTitle', worlds: '#scrWorlds', hangar: '#scrHangar', goals: '#scrGoals', settings: '#scrSettings', help: '#scrHelp', pause: '#scrPause', results: '#scrResults' };
 let curScreen = 'title', screenStack = [];
 function showScreen(name, push) {
-  for (const k in SCREENS) { const el = $(SCREENS[k]); el.classList.add('hidden'); el.classList.remove('show'); }
+  for (const k in SCREENS) { const el = $(SCREENS[k]); el.classList.add('hidden'); el.classList.remove('show', 'skipAnim'); }
   if (push && curScreen) screenStack.push(curScreen); else if (!push) screenStack = [];
   curScreen = name;
   if (!name) return;
   const el = $(SCREENS[name]); el.classList.remove('hidden'); el.scrollTop = 0; void el.offsetWidth; el.classList.add('show');
   refresh(name);
 }
+function skipScreenAnim(el) { if (el && el.classList.contains('show') && !el.classList.contains('skipAnim')) el.classList.add('skipAnim'); }
 function back() { const prev = screenStack.pop(); showScreen(prev || 'title'); if (prev) screenStack = screenStack; }
 let toastQ = [], toastBusy = false;
 function toast(msg) { toastQ.push(msg); if (!toastBusy) nextToast(); }
@@ -2260,7 +2267,7 @@ function nextToast() {
 function refresh(name) {
   $$('.cval').forEach(e => e.textContent = fmt(save.coins));
   if (name === 'title') {
-    $('#endSub').textContent = 'Best: ' + fmt(save.bestEndless) + ' m';
+    $('#endSub').textContent = 'Best: ' + fmtDist(save.bestEndless) + ' m';
     $('#advSub').textContent = starCount() + ' / 60 stars · ' + save.lvDone.filter(Boolean).length + ' / 20 levels';
   }
   if (name === 'worlds') buildWorlds();
@@ -2371,11 +2378,11 @@ function showResults(res, got) {
   } else stars.classList.add('hidden');
   $('#resBadge').classList.toggle('hidden', !res.newBest);
   const lines = [];
-  lines.push(['Distance', fmt(res.dist) + ' m']);
+  lines.push(['Distance', fmtDist(res.dist) + ' m']);
   lines.push(['Coins collected', res.coins]);
   lines.push(['Near misses', res.near]);
   lines.push(['Best combo', 'x' + res.bestMult]);
-  if (res.mode === 'endless') lines.push(['Best distance', fmt(save.bestEndless) + ' m']);
+  if (res.mode === 'endless') lines.push(['Best distance', fmtDist(save.bestEndless) + ' m']);
   lines.push(['Score', fmt(res.score)]);
   $('#resLines').innerHTML = lines.map(l => '<div class="rl"><span>' + l[0] + '</span><b>' + l[1] + '</b></div>').join('') +
     '<div class="rl tot"><span>Coins earned</span><span style="display:flex;align-items:center;gap:6px"><span class="coin"></span>+<span id="cntUp">0</span></span></div>';
@@ -2425,6 +2432,11 @@ function wire() {
     c.beginPath(); c.arc(0, 0, 27, 0, TAU); c.fillStyle = '#fff'; c.fill(); c.lineWidth = 4; c.strokeStyle = PU[k].col; c.stroke(); puIcon(c, k);
     d.appendChild(cv); const t = document.createElement('div'); t.innerHTML = '<b>' + PU[k].name + '</b> — ' + PU[k].desc; d.appendChild(t); ph.appendChild(d);
   }
+  // skip menu intro animation on first tap/click so buttons respond immediately
+  document.addEventListener('pointerdown', e => {
+    const scr = e.target.closest && e.target.closest('.screen.show');
+    if (scr) skipScreenAnim(scr);
+  }, true);
   // gameplay input
   const isUI = e => e.target.closest && e.target.closest('button,.screen');
   window.addEventListener('pointerdown', e => {
